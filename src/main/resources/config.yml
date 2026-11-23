@@ -1,0 +1,27 @@
+races:
+  angel:
+    display-name: "Ангел"
+    attributes:
+      scale: 0.75
+      safe-fall-distance: 20.0
+    effects:
+      - "SLOW_FALLING:0"
+
+  skit:
+    display-name: "Пиротехник (Скит)"
+    attributes:
+      movement-speed: 0.115
+      safe-fall-distance: 6.0
+    effects:
+      - "FIRE_RESISTANCE:0"
+
+  shadow:
+    display-name: "Тень / Наблюдатель"
+    attributes:
+      scale: 0.9
+      movement-speed: 0.125
+      max-health: 18.0
+    effects:
+      - "NIGHT_VISION:0"
+
+players: {}
