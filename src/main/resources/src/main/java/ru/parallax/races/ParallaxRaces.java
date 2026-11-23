@@ -38,7 +38,7 @@ public class ParallaxRaces extends JavaPlugin implements Listener, TabCompleter 
         for (Player player : Bukkit.getOnlinePlayers()) {
             applyPlayerRace(player);
         }
-        getLogger().info("ParallaxRaces 1.21.11 запущен!");
+        getLogger().info("ParallaxRaces 1.21.11 успешно запущен! (made by yalolt)");
     }
 
     @EventHandler
@@ -117,6 +117,7 @@ public class ParallaxRaces extends JavaPlugin implements Listener, TabCompleter 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
+            sender.sendMessage(ChatColor.GOLD + "ParallaxRaces v1.0.0 " + ChatColor.GRAY + "(made by yalolt)");
             sender.sendMessage(ChatColor.RED + "Использование: /race <set|remove|list|reload>");
             return true;
         }
