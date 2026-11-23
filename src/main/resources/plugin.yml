@@ -1,0 +1,14 @@
+name: ParallaxRaces
+version: 1.0.0
+main: ru.parallax.races.ParallaxRaces
+api-version: '1.21'
+author: yalolt
+description: Лоровые особенности и расы персонажей для Parallax SMP | made by yalolt
+commands:
+  race:
+    description: Управление расами и особенностями ОС
+    permission: parallaxraces.admin
+    usage: /race <set|remove|list|reload>
+permissions:
+  parallaxraces.admin:
+    default: op
