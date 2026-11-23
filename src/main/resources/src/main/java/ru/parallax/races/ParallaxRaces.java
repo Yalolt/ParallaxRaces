@@ -98,9 +98,9 @@ public class ParallaxRaces extends JavaPlugin implements Listener, TabCompleter 
 
         List<String> effects = getConfig().getStringList("races." + raceId + ".effects");
         for (String entry : effects) {
-            String[] parts = entry.split(":");
-            PotionEffectType type = Registry.POTION_EFFECT_TYPE.get(NamespacedKey.minecraft(parts[0].toLowerCase()));
-            int amp = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+            List<String> parts = Arrays.asList(entry.split(":"));
+            PotionEffectType type = Registry.POTION_EFFECT_TYPE.get(NamespacedKey.minecraft(parts.get(0).toLowerCase()));
+            int amp = parts.size() > 1 ? Integer.parseInt(parts.get(1)) : 0;
             if (type != null) {
                 player.addPotionEffect(new PotionEffect(type, PotionEffect.INFINITE_DURATION, amp, false, false, false));
             }
@@ -115,14 +115,15 @@ public class ParallaxRaces extends JavaPlugin implements Listener, TabCompleter 
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length == 0) {
+    public boolean onCommand(CommandSender sender, Command command, String label, String... args) {
+        List<String> argList = Arrays.asList(args);
+        if (argList.isEmpty()) {
             sender.sendMessage(ChatColor.GOLD + "ParallaxRaces v1.0.0 " + ChatColor.GRAY + "(made by yalolt)");
             sender.sendMessage(ChatColor.RED + "Использование: /race <set|remove|list|reload>");
             return true;
         }
 
-        switch (args[0].toLowerCase()) {
+        switch (argList.get(0).toLowerCase()) {
             case "reload":
                 reloadConfig();
                 for (Player p : Bukkit.getOnlinePlayers()) applyPlayerRace(p);
@@ -139,16 +140,16 @@ public class ParallaxRaces extends JavaPlugin implements Listener, TabCompleter 
                 return true;
 
             case "set":
-                if (args.length < 3) {
+                if (argList.size() < 3) {
                     sender.sendMessage(ChatColor.RED + "Использование: /race set <игрок> <раса>");
                     return true;
                 }
-                Player target = Bukkit.getPlayer(args[1]);
+                Player target = Bukkit.getPlayer(argList.get(1));
                 if (target == null) {
                     sender.sendMessage(ChatColor.RED + "Игрок не в сети.");
                     return true;
                 }
-                String raceId = args[2].toLowerCase();
+                String raceId = argList.get(2).toLowerCase();
                 if (!getConfig().contains("races." + raceId)) {
                     sender.sendMessage(ChatColor.RED + "Раса '" + raceId + "' не найдена в config.yml!");
                     return true;
@@ -161,11 +162,11 @@ public class ParallaxRaces extends JavaPlugin implements Listener, TabCompleter 
                 return true;
 
             case "remove":
-                if (args.length < 2) {
+                if (argList.size() < 2) {
                     sender.sendMessage(ChatColor.RED + "Использование: /race remove <игрок>");
                     return true;
                 }
-                Player remTarget = Bukkit.getPlayer(args[1]);
+                Player remTarget = Bukkit.getPlayer(argList.get(1));
                 if (remTarget == null) {
                     sender.sendMessage(ChatColor.RED + "Игрок не в сети.");
                     return true;
@@ -180,14 +181,15 @@ public class ParallaxRaces extends JavaPlugin implements Listener, TabCompleter 
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) return Arrays.asList("set", "remove", "list", "reload");
-        if (args.length == 2 && (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("remove"))) {
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String... args) {
+        List<String> argList = Arrays.asList(args);
+        if (argList.size() == 1) return Arrays.asList("set", "remove", "list", "reload");
+        if (argList.size() == 2 && (argList.get(0).equalsIgnoreCase("set") || argList.get(0).equalsIgnoreCase("remove"))) {
             List<String> names = new ArrayList<>();
             for (Player p : Bukkit.getOnlinePlayers()) names.add(p.getName());
             return names;
         }
-        if (args.length == 3 && args[0].equalsIgnoreCase("set")) {
+        if (argList.size() == 3 && argList.get(0).equalsIgnoreCase("set")) {
             ConfigurationSection races = getConfig().getConfigurationSection("races");
             if (races != null) return new ArrayList<>(races.getKeys(false));
         }
