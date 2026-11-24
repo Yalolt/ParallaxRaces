@@ -14,6 +14,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
@@ -23,9 +24,29 @@ import org.bukkit.potion.PotionEffectType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Random;
+import java.util.Set;
 
 public class ParallaxRaces extends JavaPlugin implements Listener, TabCompleter {
+
+    private final Random random = new Random();
+    private final Set<Material> plantFoods = new HashSet<>(Arrays.asList(
+            Material.APPLE, Material.GOLDEN_APPLE, Material.ENCHANTED_GOLDEN_APPLE,
+            Material.BREAD, Material.CARROT, Material.GOLDEN_CARROT,
+            Material.POTATO, Material.BAKED_POTATO, Material.POISONOUS_POTATO,
+            Material.BEETROOT, Material.BEETROOT_SOUP, Material.MELON_SLICE,
+            Material.SWEET_BERRIES, Material.GLOW_BERRIES, Material.DRIED_KELP,
+            Material.PUMPKIN_PIE, Material.COOKIE, Material.MUSHROOM_STEW,
+            Material.SUSPICIOUS_STEW, Material.CHORUS_FRUIT
+    ));
+
+    private final Set<Material> rawMeats = new HashSet<>(Arrays.asList(
+            Material.BEEF, Material.PORKCHOP, Material.CHICKEN,
+            Material.MUTTON, Material.RABBIT, Material.COD,
+            Material.SALMON, Material.TROPICAL_FISH, Material.SPIDER_EYE
+    ));
 
     @Override
     public void onEnable() {
@@ -38,7 +59,7 @@ public class ParallaxRaces extends JavaPlugin implements Listener, TabCompleter 
         for (Player player : Bukkit.getOnlinePlayers()) {
             applyPlayerRace(player);
         }
-        getLogger().info("ParallaxRaces 1.21.11 успешно запущен! (made by yalolt)");
+        getLogger().info("ParallaxRaces 1.21.11 запущен! (made by yalolt)");
     }
 
     @EventHandler
@@ -52,19 +73,54 @@ public class ParallaxRaces extends JavaPlugin implements Listener, TabCompleter 
     }
 
     @EventHandler
-    public void onMilkDrink(PlayerItemConsumeEvent event) {
-        if (event.getItem().getType() == Material.MILK_BUCKET) {
-            Bukkit.getScheduler().runTaskLater(this, () -> applyEffectsOnly(event.getPlayer()), 2L);
+    public void onConsume(PlayerItemConsumeEvent event) {
+        Player player = event.getPlayer();
+        Material type = event.getItem().getType();
+
+        if (type == Material.MILK_BUCKET) {
+            Bukkit.getScheduler().runTaskLater(this, () -> applyEffectsOnly(player), 2L);
+            return;
+        }
+
+        String raceId = getConfig().getString("players." + player.getUniqueId());
+        if (raceId == null) return;
+
+        if (getConfig().getBoolean("races." + raceId + ".carnivore", false)) {
+            if (plantFoods.contains(type)) {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 120, 0));
+                player.sendMessage(ChatColor.DARK_GREEN + "Ваш организм не переваривает растительную пищу...");
+            } else if (rawMeats.contains(type)) {
+                Bukkit.getScheduler().runTaskLater(this, () -> {
+                    player.removePotionEffect(PotionEffectType.HUNGER);
+                    player.removePotionEffect(PotionEffectType.POISON);
+                    player.setFoodLevel(Math.min(20, player.getFoodLevel() + 4));
+                }, 1L);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onHungerChange(FoodLevelChangeEvent event) {
+        if (!(event.getEntity() instanceof Player)) return;
+        Player player = (Player) event.getEntity();
+
+        if (event.getFoodLevel() < player.getFoodLevel()) {
+            String raceId = getConfig().getString("players." + player.getUniqueId());
+            if (raceId != null && getConfig().getBoolean("races." + raceId + ".low-hunger", false)) {
+                if (random.nextBoolean()) {
+                    event.setCancelled(true);
+                }
+            }
         }
     }
 
     public void resetPlayer(Player player) {
-        setAttr(player, Attribute.SCALE, 1.0);
-        setAttr(player, Attribute.MAX_HEALTH, 20.0);
-        setAttr(player, Attribute.MOVEMENT_SPEED, 0.1);
-        setAttr(player, Attribute.JUMP_STRENGTH, 0.42);
-        setAttr(player, Attribute.SAFE_FALL_DISTANCE, 3.0);
-        setAttr(player, Attribute.ATTACK_DAMAGE, 1.0);
+        setAttrByKey(player, "scale", 1.0);
+        setAttrByKey(player, "max_health", 20.0);
+        setAttrByKey(player, "movement_speed", 0.1);
+        setAttrByKey(player, "jump_strength", 0.42);
+        setAttrByKey(player, "safe_fall_distance", 3.0);
+        setAttrByKey(player, "attack_damage", 1.0);
 
         for (PotionEffect effect : player.getActivePotionEffects()) {
             if (effect.isInfinite()) {
@@ -74,22 +130,26 @@ public class ParallaxRaces extends JavaPlugin implements Listener, TabCompleter 
     }
 
     public void applyPlayerRace(Player player) {
-        resetPlayer(player);
-        String raceId = getConfig().getString("players." + player.getUniqueId());
-        if (raceId == null || !getConfig().contains("races." + raceId)) return;
+        try {
+            resetPlayer(player);
+            String raceId = getConfig().getString("players." + player.getUniqueId());
+            if (raceId == null || !getConfig().contains("races." + raceId)) return;
 
-        String path = "races." + raceId;
-        ConfigurationSection attrSec = getConfig().getConfigurationSection(path + ".attributes");
-        if (attrSec != null) {
-            if (attrSec.contains("scale")) setAttr(player, Attribute.SCALE, attrSec.getDouble("scale"));
-            if (attrSec.contains("max-health")) setAttr(player, Attribute.MAX_HEALTH, attrSec.getDouble("max-health"));
-            if (attrSec.contains("movement-speed")) setAttr(player, Attribute.MOVEMENT_SPEED, attrSec.getDouble("movement-speed"));
-            if (attrSec.contains("jump-strength")) setAttr(player, Attribute.JUMP_STRENGTH, attrSec.getDouble("jump-strength"));
-            if (attrSec.contains("safe-fall-distance")) setAttr(player, Attribute.SAFE_FALL_DISTANCE, attrSec.getDouble("safe-fall-distance"));
-            if (attrSec.contains("attack-damage")) setAttr(player, Attribute.ATTACK_DAMAGE, attrSec.getDouble("attack-damage"));
+            String path = "races." + raceId;
+            ConfigurationSection attrSec = getConfig().getConfigurationSection(path + ".attributes");
+            if (attrSec != null) {
+                if (attrSec.contains("scale")) setAttrByKey(player, "scale", attrSec.getDouble("scale"));
+                if (attrSec.contains("max-health")) setAttrByKey(player, "max_health", attrSec.getDouble("max-health"));
+                if (attrSec.contains("movement-speed")) setAttrByKey(player, "movement_speed", attrSec.getDouble("movement-speed"));
+                if (attrSec.contains("jump-strength")) setAttrByKey(player, "jump_strength", attrSec.getDouble("jump-strength"));
+                if (attrSec.contains("safe-fall-distance")) setAttrByKey(player, "safe_fall_distance", attrSec.getDouble("safe-fall-distance"));
+                if (attrSec.contains("attack-damage")) setAttrByKey(player, "attack_damage", attrSec.getDouble("attack-damage"));
+            }
+
+            applyEffectsOnly(player);
+        } catch (Exception e) {
+            getLogger().warning("Ошибка применения расы: " + e.getMessage());
         }
-
-        applyEffectsOnly(player);
     }
 
     private void applyEffectsOnly(Player player) {
@@ -107,10 +167,13 @@ public class ParallaxRaces extends JavaPlugin implements Listener, TabCompleter 
         }
     }
 
-    private void setAttr(Player player, Attribute attr, double value) {
-        AttributeInstance instance = player.getAttribute(attr);
-        if (instance != null) {
-            instance.setBaseValue(value);
+    private void setAttrByKey(Player player, String key, double value) {
+        Attribute attr = Registry.ATTRIBUTE.get(NamespacedKey.minecraft(key));
+        if (attr != null) {
+            AttributeInstance instance = player.getAttribute(attr);
+            if (instance != null) {
+                instance.setBaseValue(value);
+            }
         }
     }
 
@@ -159,40 +222,38 @@ public class ParallaxRaces extends JavaPlugin implements Listener, TabCompleter 
                 applyPlayerRace(target);
                 String name = getConfig().getString("races." + raceId + ".display-name", raceId);
                 sender.sendMessage(ChatColor.GREEN + "Игроку " + target.getName() + " выдана особенность: " + name);
-                return true;
-
-            case "remove":
-                if (argList.size() < 2) {
-                    sender.sendMessage(ChatColor.RED + "Использование: /race remove <игрок>");
-                    return true;
-                }
-                Player remTarget = Bukkit.getPlayer(argList.get(1));
-                if (remTarget == null) {
-                    sender.sendMessage(ChatColor.RED + "Игрок не в сети.");
-                    return true;
-                }
-                getConfig().set("players." + remTarget.getUniqueId(), null);
-                saveConfig();
-                resetPlayer(remTarget);
-                sender.sendMessage(ChatColor.YELLOW + "Особенности игрока " + remTarget.getName() + " сброшены.");
-                return true;
-        }
-        return true;
-    }
-
-    @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String... args) {
-        List<String> argList = Arrays.asList(args);
-        if (argList.size() == 1) return Arrays.asList("set", "remove", "list", "reload");
-        if (argList.size() == 2 && (argList.get(0).equalsIgnoreCase("set") || argList.get(0).equalsIgnoreCase("remove"))) {
-            List<String> names = new ArrayList<>();
-            for (Player p : Bukkit.getOnlinePlayers()) names.add(p.getName());
-            return names;
-        }
-        if (argList.size() == 3 && argList.get(0).equalsIgnoreCase("set")) {
-            ConfigurationSection races = getConfig().getConfigurationSection("races");
-            if (races != null) return new ArrayList<>(races.getKeys(false));
-        }
-        return new ArrayList<>();
-    }
+return true;
+case "remove":
+if (argList.size() < 2) {
+sender.sendMessage(ChatColor.RED + "Использование: /race remove <игрок>");
+return true;
+}
+Player remTarget = Bukkit.getPlayer(argList.get(1));
+if (remTarget == null) {
+sender.sendMessage(ChatColor.RED + "Игрок не в сети.");
+return true;
+}
+getConfig().set("players." + remTarget.getUniqueId(), null);
+saveConfig();
+resetPlayer(remTarget);
+sender.sendMessage(ChatColor.YELLOW + "Особенности игрока " + remTarget.getName() + " сброшены.");
+return true;
+}
+return true;
+}
+@Override
+public List onTabComplete(CommandSender sender, Command command, String alias, String... args) {
+List argList = Arrays.asList(args);
+if (argList.size() == 1) return Arrays.asList("set", "remove", "list", "reload");
+if (argList.size() == 2 && (argList.get(0).equalsIgnoreCase("set") || argList.get(0).equalsIgnoreCase("remove"))) {
+List names = new ArrayList<>();
+for (Player p : Bukkit.getOnlinePlayers()) names.add(p.getName());
+return names;
+}
+if (argList.size() == 3 && argList.get(0).equalsIgnoreCase("set")) {
+ConfigurationSection races = getConfig().getConfigurationSection("races");
+if (races != null) return new ArrayList<>(races.getKeys(false));
+}
+return new ArrayList<>();
+}
 }
